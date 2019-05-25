@@ -129,4 +129,16 @@ bool operator==(const Board<N>& lhs, const Board<N>& rhs) {
     return lhs.state == rhs.state;
 }
 
+template <std::size_t N>
+std::ostream& operator<<(std::ostream& os, const Board<N>& b) {
+    const std::size_t width = 1 + (int)std::log10(N * N);
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            os << std::setw(width) << b.state[b.GetIndex(j, i)] << " ";
+        }
+        os << "\n";
+    }
+    return os;
+}
+
 #endif // !NPUZZLE_HPP_
