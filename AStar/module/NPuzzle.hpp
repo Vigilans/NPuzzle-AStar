@@ -66,7 +66,25 @@ struct Board {
     }
 
     std::size_t permutationRank() const { // Myrvold & Ruskey O(n) Pefect hash for board
+        std::array<std::size_t, Size> tmp, inv, stack;
 
+        for (int i = 0; i < Size; ++i) {
+            tmp[i] = state[i];
+            inv[state[i]] = i;
+        }
+
+        for (int n = Size; n > 1; --n) {
+            int s = tmp[n - 1];
+            std::swap(tmp[n - 1], tmp[inv[n - 1]]);
+            std::swap(inv[s], inv[n - 1]);
+            stack[n - 1] = s;
+        }
+
+        for (int i = 2; i < Size; ++i) {
+            stack[i] += (i + 1) * stack[i - 1];
+        }
+
+        return stack[Size - 1];
     }
 };
 
