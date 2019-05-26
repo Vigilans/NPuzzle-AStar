@@ -159,4 +159,58 @@ std::ostream& operator<<(std::ostream& os, const Board<N>& b) {
     return os;
 }
 
+template <std::size_t N> Board<N> Board<N>::Random() {
+    auto board = Board::Ordered();
+    auto& state = board.state;
+    std::shuffle(state.begin(), state.end(), Rnd);
+    board.blank = *std::find(state.begin(), state.end(), 0);
+    return board;
+}
+
+template <std::size_t N> Board<N> Board<N>::Ordered() {
+    Board board;
+    board.state.resize(Board::Size);
+    board.blank = 0;
+    std::iota(board.state.begin(), board.state.end(), 0);
+    return board;
+}
+
+template <std::size_t N> std::vector<Board<N>> Board<N>::Scrambled(int maxSteps, bool fixed) {
+    auto steps = fixed ? maxSteps : Rnd() % maxSteps;
+    std::vector<Board> trace{ Board::Ordered() };
+    std::vector<std::bitset<4>> dirTested{ 0b0000 };
+    std::unordered_set<Board> visited{ trace.back() };
+    for (int i = 0; i < steps; ++i) {
+        while (true) {
+            const auto& board = trace.back();
+            auto& dirTest = dirTested.back();
+            auto dir = Direction(Rnd() % 4);
+            while (dirTest.to_ullong() & (1ull << dir)) { // Ensure it is a new direction
+                dir = Direction((dir + 1) % 4);
+            }
+            dirTest |= (1ull << dir);
+            if (board.validMove(dir)) {
+                auto next = board.move(dir);
+                if (!visited.count(next)) { // Prevent misprediction of solution length
+                    visited.insert(next);
+                    trace.push_back(next);
+                    dirTested.push_back(0b0000);
+                    break;
+                }
+            }
+            if (dirTest == 0b1111) { // No possible next step could be found
+                if (!fixed) { // If not fixed, we just return the current trace
+                    return trace;
+                } else { // Else, we must ensure that trace reaches maxSteps
+                    do { // Using backtrack to find another way
+                        trace.pop_back();
+                        dirTested.pop_back();
+                    } while (dirTested.back().count() < 4); // must contains an available dir
+                }
+            }
+        }
+    }
+    return trace;
+}
+
 #endif // !NPUZZLE_HPP_
