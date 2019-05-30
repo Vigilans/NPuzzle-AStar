@@ -29,6 +29,7 @@ int main() {
 
     cout << "Path length: " << path.size() << endl;
     cout << "States explorered: " << astar.statesExplorered() << endl;
+    cout << "Time Elapsed: " << astar.timeElapsed().count() << "ms" << endl;
 
     astar.clear();
 

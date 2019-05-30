@@ -131,17 +131,6 @@ struct NPuzzle {
     };
 };
 
-namespace std {
-
-template <std::size_t N>
-struct hash<Board<N>> {
-    size_t operator()(const Board<N>& board) const {
-        return board.permutationRank();
-    }
-};
-
-}
-
 template <std::size_t N>
 bool operator==(const Board<N>& lhs, const Board<N>& rhs) {
     return lhs.state == rhs.state;
@@ -157,6 +146,24 @@ std::ostream& operator<<(std::ostream& os, const Board<N>& b) {
         os << "\n";
     }
     return os;
+}
+
+namespace std {
+
+template <std::size_t N>
+struct hash<Board<N>> {
+    size_t operator()(const Board<N>& board) const {
+        return board.permutationRank();
+    }
+};
+
+template <std::size_t N>
+constexpr std::string to_string(const Board<N>& board) {
+    static stringstream ss; 
+    ss.str(""), ss << b; 
+    return ss.str();
+}
+
 }
 
 template <std::size_t N> Board<N> Board<N>::Random() {

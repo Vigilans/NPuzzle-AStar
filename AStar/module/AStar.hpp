@@ -2,10 +2,13 @@
 #define ASTAR_HPP_
 #include <vector>
 #include <memory>
+#include <chrono>
+#include <algorithm>
 #include <unordered_set>
 #include <unordered_map>
-#include <algorithm>
 #include "lib/fiboheap/fiboqueue.h"
+
+namespace ch = std::chrono;
 
 template <typename State, typename Value>
 struct AStarNode {
@@ -26,6 +29,14 @@ struct less<AStarNode<State, Value>*> {
 };
 }
 
+template <class Duration>
+struct DurationGuard {
+    Duration& duration;
+    ch::time_point<ch::system_clock> start;
+    DurationGuard(Duration& d) : duration(d), start(ch::system_clock::now()) {}
+    ~DurationGuard() { duration = ch::duration_cast<Duration>(ch::system_clock::now() - start); }
+};
+
 template <typename Problem>
 class AStarSearch { 
 public:
@@ -38,6 +49,7 @@ public:
 
     std::vector<State> findPath(State init, State goal) {
         // Initializing
+        DurationGuard durationGuard(m_searchTime);
         auto initNode = getNode(std::move(init));
         auto goalNode = getNode(std::move(goal));
         initNode->h = m_problem.h(initNode->state, goalNode->state);
@@ -90,6 +102,10 @@ public:
         return m_nodePool.size();
     }
 
+    ch::milliseconds timeElapsed() {
+        return m_searchTime;
+    }
+
     void clear() {
         m_nodePool.clear();
         m_open.clear();
@@ -136,6 +152,7 @@ private:
 
 private:
     Problem m_problem;
+    ch::milliseconds m_searchTime;
     std::unordered_map<std::size_t, std::unique_ptr<Node>> m_nodePool;
     std::unordered_set<Node*> m_close;
     FibQueue<Node*> m_open;
