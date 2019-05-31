@@ -17,7 +17,7 @@ constexpr size_t N = 5; // 24-Digits
 using AStar = AStarSearch<NPuzzle<N>>;
 using HeuristicFunc = std::function<AStar::Value(const AStar::State&, const AStar::State&)>;
 
-PYBIND11_MODULE(AStar, mod) {
+PYBIND11_MODULE(Module, mod) {
     mod.doc() = "NPuzzle.rl Core module";
 
     // Definition of Player enum class
@@ -42,7 +42,7 @@ PYBIND11_MODULE(AStar, mod) {
         .def("__len__",  [](const Board<N>& p) { return N * N; })
         .def("__hash__", [](const Board<N>& b) { return b.permutationRank(); })
         .def("__str__",  [](const Board<N>& b) { return to_string(b); })
-        .def("__repr__", [](const Board<N>& b) { auto [x, y] = Board<N>::GetPose(b.blank); return py::str("Board(blank_tile: [{},{}], board:\n{}\n)").format(x, y, to_string(b)); })
+        .def("__repr__", [](const Board<N>& b) { auto [x, y] = Board<N>::GetPose(b.blank); return py::str("Board(blank: [{},{}], board:\n{})").format(x, y, to_string(b)); })
         .def_static("ordered", Board<N>::Ordered)
         .def_static("random", Board<N>::Random)
         .def_static("scrambled", Board<N>::Scrambled);

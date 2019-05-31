@@ -162,7 +162,10 @@ template <std::size_t N>
 constexpr std::string to_string(const Board<N>& board) {
     static stringstream ss; 
     ss.str(""), ss << board; 
-    return ss.str();
+    auto str = ss.str();
+    str.pop_back(); // Remove "\n"
+    str.pop_back(); // Remove " "
+    return str;
 }
 
 }
@@ -171,7 +174,7 @@ template <std::size_t N> Board<N> Board<N>::Random() {
     auto board = Board::Ordered();
     auto& state = board.state;
     std::shuffle(state.begin(), state.end(), Rnd);
-    board.blank = *std::find(state.begin(), state.end(), 0);
+    board.blank = std::find(state.begin(), state.end(), 0) - state.begin();
     return board;
 }
 

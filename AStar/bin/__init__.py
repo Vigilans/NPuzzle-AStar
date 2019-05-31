@@ -21,5 +21,5 @@ module_path = os.path.join(
     os.path.dirname(__file__), os_name, platform, config
 )
 
-# Add CorePyExt module to sys path for import
+# Add module to sys path for import
 sys.path.append(module_path)
