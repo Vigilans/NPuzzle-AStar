@@ -9,6 +9,7 @@
 #include <bitset>
 #include <functional>
 #include <iomanip>
+#include <sstream>
 
 constexpr int Factorial(int n) {
     if (n == 0) return 1;
@@ -160,7 +161,7 @@ struct hash<Board<N>> {
 template <std::size_t N>
 constexpr std::string to_string(const Board<N>& board) {
     static stringstream ss; 
-    ss.str(""), ss << b; 
+    ss.str(""), ss << board; 
     return ss.str();
 }
 

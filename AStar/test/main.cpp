@@ -1,5 +1,5 @@
-#include "../module/AStar.hpp"
-#include "../module/NPuzzle.hpp"
+#include "AStar.hpp"
+#include "NPuzzle.hpp"
 #include <iostream>
 
 using namespace std;

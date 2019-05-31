@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <unordered_set>
 #include <unordered_map>
-#include "lib/fiboheap/fiboqueue.h"
+#include "../lib/fiboheap/fiboqueue.h"
 
 namespace ch = std::chrono;
 
