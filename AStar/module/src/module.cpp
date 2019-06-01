@@ -31,7 +31,7 @@ PYBIND11_MODULE(Module, mod) {
         .def(py::init<>())
         .def_readonly("blank_tile", &Board<N>::blank)
         .def_property_readonly("board", [](const Board<N>& b) {
-            return py::array(py::dtype("uint8"), { N, N }, b.state.data());
+            return py::array_t({ N, N }, b.state.data());
         })
         .def_property_readonly("state", [](const Board<N>& b) {
             py::array_t<float> state({ N * N });
@@ -39,13 +39,17 @@ PYBIND11_MODULE(Module, mod) {
             return state;
         })
         .def("move", [](const Board<N>& b, Board<N>::Direction dir) { return b.validMove(dir) ? b.move(dir) : b; })
-        .def("__len__",  [](const Board<N>& p) { return N * N; })
+        .def("__len__",  [](const Board<N>& b) { return N * N; })
         .def("__hash__", [](const Board<N>& b) { return b.permutationRank(); })
         .def("__str__",  [](const Board<N>& b) { return to_string(b); })
         .def("__repr__", [](const Board<N>& b) { auto [x, y] = Board<N>::GetPose(b.blank); return py::str("Board(blank: [{},{}], board:\n{})").format(x, y, to_string(b)); })
-        .def_static("ordered", Board<N>::Ordered)
-        .def_static("random", Board<N>::Random)
-        .def_static("scrambled", Board<N>::Scrambled);
+        .def_static("ordered",   Board<N>::Ordered)
+        .def_static("random",    Board<N>::Random)
+        .def_static("scrambled", Board<N>::Scrambled)
+        .def_property_readonly_static("N", []() { return N; })
+        .def_property_readonly_static("size", []() { return N * N; })
+        .def_static("get_pose",  Board<N>::GetPose)
+        .def_static("get_index", Board<N>::GetIndex);
 
     py::class_<AStar>(mod, "AStar", "A* Search Tree on 24-Digits problem")
         .def(py::init([](variant<string, HeuristicFunc> arg) {
