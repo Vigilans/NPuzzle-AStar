@@ -48,6 +48,9 @@ public:
     AStarSearch(Problem problem) : m_problem(problem) {}
 
     std::vector<State> findPath(State init, State goal) {
+        // Check whether already reaches goal
+        if (init == goal) {  return { init }; }
+
         // Initializing
         DurationGuard durationGuard(m_searchTime);
         auto initNode = getNode(std::move(init));

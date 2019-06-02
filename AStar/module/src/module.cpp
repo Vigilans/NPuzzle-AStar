@@ -33,21 +33,22 @@ PYBIND11_MODULE(Module, mod) {
         .def_property_readonly("board", [](const Board<N>& b) {
             return py::array_t({ N, N }, b.state.data());
         })
-        .def_property_readonly("state", [](const Board<N>& b) {
+        .def_property_readonly("state", [](const Board<N>& b) { 
             py::array_t<float> state({ N * N });
             std::copy(b.state.begin(), b.state.end(), state.mutable_data());
             return state;
         })
         .def("move", [](const Board<N>& b, Board<N>::Direction dir) { return b.validMove(dir) ? b.move(dir) : b; })
+        .def("__eq__",   [](const Board<N>& a, const Board<N>& b) { return a == b; })
         .def("__len__",  [](const Board<N>& b) { return N * N; })
         .def("__hash__", [](const Board<N>& b) { return b.permutationRank(); })
         .def("__str__",  [](const Board<N>& b) { return to_string(b); })
-        .def("__repr__", [](const Board<N>& b) { auto [x, y] = Board<N>::GetPose(b.blank); return py::str("Board(blank: [{},{}], board:\n{})").format(x, y, to_string(b)); })
+        .def("__repr__", [](const Board<N>& b) { auto [x, y] = Board<N>::GetPose(b.blank); return py::str("Board(blank: [{},{}], board:\n{}\n)").format(x, y, to_string(b)); })
         .def_static("ordered",   Board<N>::Ordered)
         .def_static("random",    Board<N>::Random)
         .def_static("scrambled", Board<N>::Scrambled)
-        .def_property_readonly_static("N", []() { return N; })
-        .def_property_readonly_static("size", []() { return N * N; })
+        .def_property_readonly_static("N", [](py::object) { return N; })
+        .def_property_readonly_static("size", [](py::object) { return N * N; })
         .def_static("get_pose",  Board<N>::GetPose)
         .def_static("get_index", Board<N>::GetIndex);
 
@@ -76,5 +77,5 @@ PYBIND11_MODULE(Module, mod) {
         }, "Result: <path, path_length, states_explorered, time_elapsed>")
         .def_property_readonly("states_explorered", &AStar::statesExplorered)
         .def_property_readonly("time_elapsed", &AStar::timeElapsed)
-        .def("__repr__", [](const Board<N>& b) { return "A* Search Tree on 24-Digits problem"; });
+        .def("__repr__", [](const AStar& b) { return py::str("A* Search Tree on 24-Digits problem"); });
 }

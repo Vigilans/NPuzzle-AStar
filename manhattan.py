@@ -10,8 +10,11 @@ def manhattan(a: Board, b: Board):
     return distance
 
 if __name__ == "__main__":
-    astar1 = AStar("manhattan")
-    astar2 = AStar(manhattan)
+    astar1 = AStar("manhattan") # Use cpp's built-in manhattan
+    astar2 = AStar(manhattan) # Use python version
     start = Board.scrambled(30, True)[-1]
-    print(astar1.run(start)[1:])
-    print(astar2.run(start)[1:])
+    result1 = astar1.run(start)
+    result2 = astar2.run(start)
+    print(result1[1:])
+    print(result2[1:])
+    assert (result1[:-1] == result2[:-1])
