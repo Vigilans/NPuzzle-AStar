@@ -6,7 +6,9 @@ from network import Config, Network
 import time
 
 def accuracy(output, label):
-    return (output == label.astype('float32')).mean().asscalar()
+    # print(output.max(axis=1))
+    # print(label)
+    return (output.max(axis=1).round() == label.astype('float32')).mean().asscalar()
 
 class Trainer:
     def __init__(self, network: Network):
@@ -14,20 +16,21 @@ class Trainer:
         self.train_proc = Training(network, network.cfg)
         self.generator = "manhattan"
         self.dataset_size = 1000
-        self.max_steps = 5
+        self.max_steps = 10
 
     def generate_dataset(self, dataset_size: int):
         generator = AStar(self.generator)
-        X, y = [], []
+        X, y = [Board.ordered().state], [0]
         while len(X) < dataset_size:
-            board = Board.scrambled(self.max_steps, False)
-            path, _, _, _ = generator.run(board)
-            pathLengths, boardStates = list(zip(*enumerate(path)))
-            X.extend(boardStates)
-            y.extend(pathLengths)
+            boards = Board.scrambled(self.max_steps, True)
+            path, pathLength, _, _ = generator.run(boards[-1])
+            for i, board in enumerate(path[:-1]):
+                X.append(board.state)
+                y.append(pathLength - 1 - i)
+        X = [self.network.transform(state) for state in X]
         return gluon.data.ArrayDataset(nd.array(X), nd.array(y))
 
-    def udpate(self):
+    def update(self):
         if type(self.generator) is str: # Currently cpp built-in for generating, update by imitation learning
             print(f"\nTesting network agent against {self.generator} agent...")
             agent_gen = AStar(self.generator)
@@ -35,9 +38,9 @@ class Trainer:
             result_gen = []
             result_net = []
             for i in range(5): # test 5 rounds
-                board = Board.scrambled(self.max_steps, True) # fixed length
-                result_gen.append(agent_gen.run(board))
-                result_net.append(agent_net.run(board))
+                boards = Board.scrambled(self.max_steps, True) # fixed length
+                result_gen.append(agent_gen.run(boards[-1]))
+                result_net.append(agent_net.run(boards[-1]))
                 print(f"Round {i + 1}, gen: {result_gen[-1][1:]}")
                 print(f"Round {i + 1}, net: {result_net[-1][1:]}")
 
@@ -49,6 +52,7 @@ class Trainer:
                 if avg_states_net < avg_states_gen:
                     self.max_steps += 5
                     print(f"Max scrambling steps increased to {self.max_steps}")
+                    return True
             else: # Bound to turn imitation learning to curriculumn learning
                 # We use running time to determine whether it is suitable to use network to predict
                 avg_time_gen = sum([r[3] for r in result_gen]) / 5
@@ -57,6 +61,7 @@ class Trainer:
                 if avg_time_net < avg_time_gen:
                     print("Generator changed to network.")
                     self.generator = self.network.predict
+                    return True
                 else:
                     print("Generator keeps unchanged.")
         else: # Currently network.predict for generating, update by curriculum learning
@@ -69,12 +74,18 @@ class Trainer:
             if (acc > 0.75):
                 self.max_steps += 2
                 print(f"Max scrambling steps increased to {self.max_steps}")
+                return True
+        print() # Leave an empty line
+        return False # Did not update
 
     def start(self):
+        while self.update():
+            continue # continue increase difficulty until need more training
         while True:
-            dataset = self.generate_dataset(self.dataset_size)
-            self.train_proc.train(dataset)
-            self.udpate()
+            train_set = self.generate_dataset(self.dataset_size)
+            valid_set = self.generate_dataset(self.dataset_size / 10)
+            self.train_proc.train(train_set, valid_set)
+            self.update()
 
 class Training:
     def __init__(self, network: Network, cfg: Config):
@@ -82,11 +93,14 @@ class Training:
         self.epochs  = cfg.epochs
         self.batch_size  = cfg.batch_size
         self.params_file = cfg.params_file
-        self.best_acc = 0.
+        self.best_acc = float("inf")
 
-    def train(self, dataset):
-        train_data = gluon.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=6)
-        valid_data = []
+    def build_dataset(self, dataset):
+        return gluon.data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=6)
+
+    def train(self, train_set, valid_set):
+        train_data = gluon.data.DataLoader(train_set, batch_size=self.batch_size, shuffle=True, num_workers=6)
+        valid_data = gluon.data.DataLoader(valid_set, batch_size=self.batch_size, shuffle=True, num_workers=6)
         for epoch in range(self.epochs):
             # Prepare data for one epoch
             train_loss, train_acc, valid_acc = 0., 0., 0.
@@ -122,14 +136,14 @@ class Training:
             f"in {time:1f} sec")
 
         # Test whether to save the better one or reload the best
-        if valid_acc >= self.best_acc:
+        if self.best_acc == float("inf"):
+            self.best_acc = valid_acc
+        elif valid_acc >= self.best_acc:
             print(f"New best model found. Saving to {self.params_file}.")
+            print("--------------------------------------------------")
             self.best_acc = valid_acc
             self.network.net.save_parameters(self.params_file)
         else:
-            print(f"No better than best model. Reloading {self.params_file}.")
-            self.network.cfg.learning_rate /= 4
+            # self.network.cfg.learning_rate /= 4
             self.network.load_trainer()
             self.network.net.load_parameters(self.params_file)
-
-        print("--------------------------------------------------")

@@ -15,33 +15,33 @@ class Config:
     params_file   : str
     # Configuration of trainer
     learning_rate : float
-    momentum      : Optional[float]
-    weight_decay  : Optional[float]
+    momentum      : Optional[float] = None
+    weight_decay  : Optional[float] = None
 
 class Network:
-    def __init__(self, net: nn.Block, cfg: Config, predict):
+    def __init__(self, net: nn.Block, cfg: Config, transform, predict):
         self.net = net
         self.cfg = cfg
+        self.transform = transform
         self.net_predict = predict
-        self.loss = cfg.loss
-        self.trainer = None
-        self.load_trainer()
         if os.path.exists(cfg.params_file):
             self.net.load_parameters(cfg.params_file)
         else:
             print("Params file not found. Initializing...")
             self.net.initialize(init=init.Xavier())
-            self.net.save_parameters(cfg.params_file)
+        self.loss = cfg.loss
+        self.trainer = None
+        self.load_trainer()
 
     def load_trainer(self):
         opt = self.cfg.optimizer
-        opt_dict = {
-            "learning_rate": self.cfg.learning_rate,
-            "momentum": self.cfg.momentum,
-            "wd": self.cfg.weight_decay
-        }
+        opt_dict = { "learning_rate": self.cfg.learning_rate }
+        if self.cfg.momentum is not None:
+            opt_dict["momentum"] = self.cfg.momentum
+        if self.cfg.weight_decay is not None:
+            opt_dict["wd"] = self.cfg.weight_decay
         if self.trainer is None:
-            self.trainer = Trainer(self.net.params(), opt, opt_dict)
+            self.trainer = Trainer(self.net.collect_params(), opt, opt_dict)
         else:
             self.trainer._init_optimizer(opt, opt_dict)
 
