@@ -34,7 +34,7 @@ PYBIND11_MODULE(Module, mod) {
             return py::array_t({ N, N }, b.state.data());
         })
         .def_property_readonly("state", [](const Board<N>& b) { 
-            py::array_t<float> state({ N * N });
+            py::array_t<size_t> state({ N * N });
             std::copy(b.state.begin(), b.state.end(), state.mutable_data());
             return state;
         })

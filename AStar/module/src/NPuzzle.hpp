@@ -187,7 +187,7 @@ template <std::size_t N> Board<N> Board<N>::Ordered() {
 }
 
 template <std::size_t N> std::vector<Board<N>> Board<N>::Scrambled(int maxSteps, bool fixed) {
-    auto steps = fixed ? maxSteps : Rnd() % maxSteps;
+    auto steps = fixed ? maxSteps : (maxSteps + Rnd() % maxSteps) / 2;
     std::vector<Board> trace{ Board::Ordered() };
     std::vector<std::bitset<4>> dirTested{ 0b0000 };
     std::unordered_set<Board> visited{ trace.back() };

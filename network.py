@@ -1,5 +1,5 @@
 from AStar import Board
-from mxnet import nd, gluon, init
+from mxnet import nd, gluon, init, gpu
 from mxnet.gluon import nn, Trainer
 from dataclasses import dataclass
 from typing import Optional
@@ -25,10 +25,10 @@ class Network:
         self.transform = transform
         self.net_predict = predict
         if os.path.exists(cfg.params_file):
-            self.net.load_parameters(cfg.params_file)
+            self.net.load_parameters(cfg.params_file, ctx=gpu(0))
         else:
             print("Params file not found. Initializing...")
-            self.net.initialize(init=init.Xavier())
+            self.net.initialize(init=init.Xavier(), ctx=gpu(0))
         self.loss = cfg.loss
         self.trainer = None
         self.load_trainer()
