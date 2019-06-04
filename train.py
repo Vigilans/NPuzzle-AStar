@@ -13,10 +13,11 @@ def accuracy(output, label):
 class Trainer:
     def __init__(self, network: Network):
         self.network = network
+        self.cfg = network.cfg
         self.train_proc = Training(network, network.cfg)
         self.generator = "manhattan"
-        self.dataset_size = 5000
-        self.max_steps = 5
+        self.dataset_size = self.cfg.dataset_size
+        self.max_steps = self.cfg.init_steps
 
     def generate_dataset(self, dataset_size: int):
         generator = AStar(self.generator)
@@ -28,9 +29,9 @@ class Trainer:
                 X.append(board)
                 y.append([pathLength - 1 - i]) # to ensure consistent shape
         X = [self.network.transform(board) for board in X]
-        return X, y
+        return [nd.array(a, ctx=self.cfg.context) for a in (X, y)]
 
-    def update(self):
+    def update_generator(self):
         if type(self.generator) is str: # Currently cpp built-in for generating, update by imitation learning
             print(f"\nTesting network agent against {self.generator} agent...")
             agent_gen = AStar(self.generator)
@@ -67,8 +68,8 @@ class Trainer:
         else: # Currently network.predict for generating, update by curriculum learning
             print(f"\nTesting network agent on random state predicting accuracy...")
             # Generate a test set to see the accuracy
-            testset = self.generate_dataset(10)
-            states, labels = list(zip(*testset))
+            testset = self.generate_dataset(100)
+            states, labels = testset
             acc = accuracy(self.network.net(states), labels)
             print(f"Accuracy: {acc}")
             if (acc > 0.75):
@@ -78,23 +79,46 @@ class Trainer:
         print() # Leave an empty line
         return False # Did not update
 
+    def update_params(self):
+        # Generate a test set to compare
+        testset = self.generate_dataset(100)
+        states, labels = testset
+        # Load the this-round best model
+        self.network.load_params(self.train_proc.round)
+        curr_acc = accuracy(self.network.net(states), labels)
+        print(f"\nCurrent model acc on testset: {curr_acc:3f}")
+        # Load the all-time best model and compare
+        self.network.load_params()
+        best_acc = accuracy(self.network.net(states), labels)
+        print(f"Best model acc on testset: {best_acc:3f}")
+        if curr_acc > best_acc:
+            # Reload the this-round best model, and set it as the best
+            print(f"New best model found on round {self.train_proc.round}, saving...")
+            self.network.load_params(self.train_proc.round)
+            self.network.save_params()
+        # Save the until-this-round best model
+        self.network.save_model(self.train_proc.round)
+
     def start(self):
         while True:
-            while self.update():
+            print("-----------------------------Round %02d------------------------------------" % self.train_proc.round)
+            while self.update_generator():
                 continue # continue increasing difficulty until need more training
             print(f"Generating {self.dataset_size + self.dataset_size / 10} examples...")
             train_set = self.generate_dataset(self.dataset_size)
             valid_set = self.generate_dataset(self.dataset_size / 10)
             self.train_proc.train(train_set, valid_set)
-            self.network.net.load_parameters(self.network.cfg.params_file, ctx=gpu(0)) # reload best model
+            self.update_params()
+            self.train_proc.round += 1
+            print("-------------------------------------------------------------------------\n")
 
 class Training:
     def __init__(self, network: Network, cfg: Config):
         self.network = network
         self.epochs  = cfg.epochs
         self.batch_size  = cfg.batch_size
-        self.params_file = cfg.params_file
-        self.best_acc = float("inf")
+        self.best_acc = 0.0
+        self.round = 0
 
     def build_dataset(self, dataset):
         # states = dataset[0]
@@ -126,6 +150,7 @@ class Training:
         train_data, train_batches = self.build_dataset(train_set)
         valid_data, valid_batches = self.build_dataset(valid_set)
         print("Start training...")
+        self.best_acc = float("inf")
         for epoch in range(self.epochs):
             # Prepare data for one epoch
             train_loss, train_acc, valid_acc = 0., 0., 0.
@@ -164,10 +189,9 @@ class Training:
         if self.best_acc == float("inf"):
             self.best_acc = valid_acc
         if valid_acc > self.best_acc:
-            print(f"New best model found. Saving to {self.params_file}.")
-            print("--------------------------------------------------")
+            print(f"New best model in round {self.round} found, saving to this-round-best...")
             self.best_acc = valid_acc
-            self.network.net.save_parameters(self.params_file)
+            self.network.save_params(self.round)
         else:
             # self.network.cfg.learning_rate /= 4
             # self.network.load_trainer()
