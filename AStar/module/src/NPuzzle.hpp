@@ -188,14 +188,20 @@ template <std::size_t N> Board<N> Board<N>::Ordered() {
 
 template <std::size_t N> std::vector<Board<N>> Board<N>::Scrambled(int maxSteps, bool fixed) {
     auto steps = fixed ? maxSteps : (maxSteps + Rnd() % maxSteps) / 2;
-    std::vector<Board> trace{ Board::Ordered() };
-    std::vector<std::bitset<4>> dirTested{ 0b0000 };
-    std::unordered_set<Board> visited{ trace.back() };
-    for (int i = 0; i < steps; ++i) {
-        while (true) {
+    std::unordered_set<Board> visited;
+    std::vector<Board> trace;
+    std::vector<std::bitset<4>> dirTested;
+    while (trace.size() <= steps) {
+        if (trace.empty()) { // Initializing, Re-init when backtracking failed
+            trace.push_back(Board::Ordered());
+            dirTested.push_back(0b0000);
+            visited.clear(), visited.insert(trace.back());
+        }
+        while (!trace.empty()) { // Stops when backtracking failed
             const auto& board = trace.back();
             auto& dirTest = dirTested.back();
             auto dir = Direction(Rnd() % 4);
+            if (dirTest == 0b1111) { exit(1); }
             while (dirTest.to_ullong() & (1ull << dir)) { // Ensure it is a new direction
                 dir = Direction((dir + 1) % 4);
             }
@@ -214,9 +220,10 @@ template <std::size_t N> std::vector<Board<N>> Board<N>::Scrambled(int maxSteps,
                     return trace;
                 } else { // Else, we must ensure that trace reaches maxSteps
                     do { // Using backtrack to find another way
+                        visited.erase(trace.back());
                         trace.pop_back();
                         dirTested.pop_back();
-                    } while (dirTested.back().count() < 4); // must contains an available dir
+                    } while (dirTested.back() == 0b1111); // must contains an available dir
                 }
             }
         }
