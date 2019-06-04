@@ -10,11 +10,21 @@ import time
 def accuracy(output, label):
     return (output.round() == label).mean().asscalar()
 
+def tournament(args):
+    i, steps, (name_a, h_a), (name_b, h_b) = args
+    boards = Board.scrambled(steps, True) # fixed length
+    agents = [AStar(h) for h in [h_a, h_b]]
+    results = [agent.run(boards[-1]) for agent in agents]
+    print(f"Round {i}, {name_a}: {results[0][1:]}")
+    print(f"Round {i}, {name_b}: {results[1][1:]}")
+    return results
+
 class Trainer:
-    def __init__(self, network: Network):
-        self.network = network
-        self.cfg = network.cfg
-        self.train_proc = Training(network, network.cfg)
+    def __init__(self, network_factory):
+        self.network_factory = network_factory
+        self.network: Network = self.network_factory()
+        self.cfg = self.network.cfg
+        self.train_proc = Training(self.network, self.network.cfg)
         self.generator = "manhattan"
         self.dataset_size = self.cfg.dataset_size
         self.max_steps = self.cfg.init_steps
@@ -27,30 +37,25 @@ class Trainer:
             path, pathLength, _, _ = generator.run(boards[-1])
             for i, board in enumerate(path[:-1]):
                 X.append(board)
-                y.append([pathLength - 1 - i]) # to ensure consistent shape
+                y.append([min(pathLength - 1 - i, self.max_steps)]) # to ensure consistent shape
         X = [self.network.transform(board) for board in X]
         return [nd.array(a, ctx=self.cfg.context) for a in (X, y)]
 
     def update_generator(self):
         if type(self.generator) is str: # Currently cpp built-in for generating, update by imitation learning
             print(f"\nTesting network agent against {self.generator} agent...")
-            agent_gen = AStar(self.generator)
-            agent_net = AStar(self.network.predict)
-            result_gen = []
-            result_net = []
+            result_gen, result_net = [], []
             for i in range(5): # test 5 rounds
-                boards = Board.scrambled(self.max_steps, True) # fixed length
-                result_gen.append(agent_gen.run(boards[-1]))
-                print(f"Round {i + 1}, gen: {result_gen[-1][1:]}")
-                result_net.append(agent_net.run(boards[-1]))
-                print(f"Round {i + 1}, net: {result_net[-1][1:]}")
+                results = tournament((i, self.max_steps, ("gen", self.generator), ("net", self.network.predict)))
+                result_gen.append(results[0])
+                result_net.append(results[1])
 
-            if self.max_steps < 30:
+            if self.max_steps < 35:
                 # We use explorered states to determine whether max_step should be higher
                 avg_states_gen = sum([r[2] for r in result_gen]) / 5
                 avg_states_net = sum([r[2] for r in result_net]) / 5
                 print(f"Explorered states: gen({avg_states_gen}) vs net({avg_states_net})")
-                if avg_states_net < avg_states_gen:
+                if avg_states_net <= avg_states_gen:
                     self.max_steps += (5 if self.max_steps < 25 else 1)
                     print(f"Max scrambling steps increased to {self.max_steps}")
                     return True
@@ -59,7 +64,7 @@ class Trainer:
                 avg_time_gen = sum([r[3] for r in result_gen], timedelta()) / 5
                 avg_time_net = sum([r[3] for r in result_net], timedelta()) / 5
                 print(f"Running time: gen({avg_time_gen}) vs net({avg_time_net})")
-                if avg_time_net < avg_time_gen:
+                if avg_time_net <= avg_time_gen:
                     print("Generator changed to network.")
                     self.generator = self.network.predict
                     return True
@@ -68,7 +73,7 @@ class Trainer:
         else: # Currently network.predict for generating, update by curriculum learning
             print(f"\nTesting network agent on random state predicting accuracy...")
             # Generate a test set to see the accuracy
-            testset = self.generate_dataset(100)
+            testset = self.generate_dataset(1000)
             states, labels = testset
             acc = accuracy(self.network.net(states), labels)
             print(f"Accuracy: {acc}")
@@ -80,24 +85,23 @@ class Trainer:
         return False # Did not update
 
     def update_params(self):
-        # Generate a test set to compare
-        testset = self.generate_dataset(100)
-        states, labels = testset
-        # Load the this-round best model
-        self.network.load_params(self.train_proc.round)
-        curr_acc = accuracy(self.network.net(states), labels)
-        print(f"\nCurrent model acc on testset: {curr_acc:3f}")
-        # Load the all-time best model and compare
-        self.network.load_params()
-        best_acc = accuracy(self.network.net(states), labels)
-        print(f"Best model acc on testset: {best_acc:3f}")
-        if curr_acc > best_acc:
+        print("\nComparing this-round best model with all-time best model...")
+        best_network = self.network_factory() # Load the all-time best model to compete with this-round best model
+        result_curr, result_best = [], []
+        for i in range(5): # test 5 rounds
+            results = tournament((i, self.max_steps, ("curr", self.network.predict), ("best", best_network.predict)))
+            result_curr.append(results[0])
+            result_best.append(results[1])
+        avg_states_curr = sum([r[2] for r in result_curr]) / 5
+        avg_states_best = sum([r[2] for r in result_best]) / 5
+        print(f"Explorered states: curr({avg_states_curr}) vs best({avg_states_best})")
+        if avg_states_curr < avg_states_best:
             # Reload the this-round best model, and set it as the best
             print(f"New best model found on round {self.train_proc.round}, saving...")
-            self.network.load_params(self.train_proc.round)
             self.network.save_params()
-        # Save the until-this-round best model
-        self.network.save_model(self.train_proc.round)
+        # Save and export the until-this-round best model
+        self.network.save_params(self.train_proc.round)
+        self.network.export_model()
 
     def start(self):
         while True:
@@ -192,8 +196,9 @@ class Training:
             print(f"New best model in round {self.round} found, saving to this-round-best...")
             self.best_acc = valid_acc
             self.network.save_params(self.round)
-        else:
+        elif valid_acc < self.best_acc / 8:
             # self.network.cfg.learning_rate /= 4
             # self.network.load_trainer()
-            # self.network.net.load_parameters(self.params_file, ctx=gpu(0))
+            print(f"Peformance too low, reloading the params...")
+            self.network.load_params()
             pass

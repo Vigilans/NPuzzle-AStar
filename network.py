@@ -54,14 +54,17 @@ class Network:
         else:
             print("Params file not found. Initializing...")
             self.net.initialize(init=init.Xavier(), ctx=self.cfg.context)
+            self.save_params()
 
     def save_params(self, round=None):
         self.net.save_parameters(self.params_file(round))
 
-    def save_model(self, round):
-        self.net.hybridize() # export needs hybridize and forward at least once
-        self.predict(Board.ordered(), Board.ordered())
-        self.net.export(self.cfg.model_base, round)
+    def export_model(self):
+        export_file = f"{self.cfg.model_base}-symbol.params"
+        self.net.hybridize()
+        self.predict(Board.ordered(), Board.ordered()) # predict an null example to init
+        self.net.export(self.cfg.model_base, 9999) # ugly workaround
+        os.replace(self.params_file(9999), export_file)
 
     def params_file(self, round=None):
         if round is None: # Load the best params

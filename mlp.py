@@ -28,11 +28,11 @@ CONFIG = Config(
     loss = gluon.loss.L2Loss(),
     optimizer = "adam",
     learning_rate = 0.01,
-    epochs = 100,
+    epochs = 300,
     batch_size = 32,
     model_base = "./model/mlp",
-    dataset_size = 5000,
-    init_steps = 5
+    dataset_size = 100000,
+    init_steps = 30
 )
 
 def transform(board):
