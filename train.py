@@ -20,14 +20,14 @@ class Trainer:
 
     def generate_dataset(self, dataset_size: int):
         generator = AStar(self.generator)
-        X, y = [Board.ordered().state], [[0]]
+        X, y = [Board.ordered()], [[0]]
         while len(X) < dataset_size:
             boards = Board.scrambled(self.max_steps, True)
             path, pathLength, _, _ = generator.run(boards[-1])
             for i, board in enumerate(path[:-1]):
-                X.append(board.state)
+                X.append(board)
                 y.append([pathLength - 1 - i]) # to ensure consistent shape
-        X = [self.network.transform(state) for state in X]
+        X = [self.network.transform(board) for board in X]
         return X, y
 
     def update(self):

@@ -23,6 +23,7 @@ class MLP(Block):
         return self.output(x)
 
 CONFIG = Config(
+    context = gpu(0),
     loss = gluon.loss.L2Loss(),
     optimizer = "adam",
     learning_rate = 0.01,
@@ -31,13 +32,10 @@ CONFIG = Config(
     params_file = "./model/mlp.params"
 )
 
-def transform(state: np.array):
+def transform(board):
     onehot = np.zeros((25, 25))
-    onehot[np.arange(25), state] = 1
+    onehot[np.arange(25), board.state] = 1
     return onehot.flatten() # 625 one-hot vector
 
-def predict(net: MLP, state: np.array, _goal):
-    return round(net(nd.array([transform(state)]).as_in_context(gpu(0)))[0].asscalar())
-
 def network(training=True):
-    return Network(MLP(training), CONFIG, transform, predict)
+    return Network(MLP(training), CONFIG, transform)

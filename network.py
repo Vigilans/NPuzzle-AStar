@@ -1,5 +1,5 @@
 from AStar import Board
-from mxnet import nd, gluon, init, gpu
+from mxnet import nd, gluon, init, gpu, Context
 from mxnet.gluon import nn, Trainer
 from dataclasses import dataclass
 from typing import Optional
@@ -7,31 +7,32 @@ import os
 
 @dataclass
 class Config:
-    # Configuration of training
+    context    : Context
     loss       : gluon.loss.Loss
     optimizer  : str
     epochs     : int
     batch_size : int
     params_file   : str
-    # Configuration of trainer
     learning_rate : float
     momentum      : Optional[float] = None
     weight_decay  : Optional[float] = None
 
 class Network:
-    def __init__(self, net: nn.Block, cfg: Config, transform, predict):
+    def __init__(self, net: nn.Block, cfg: Config, transform):
         self.net = net
         self.cfg = cfg
         self.transform = transform
-        self.net_predict = predict
-        if os.path.exists(cfg.params_file):
-            self.net.load_parameters(cfg.params_file, ctx=gpu(0))
-        else:
-            print("Params file not found. Initializing...")
-            self.net.initialize(init=init.Xavier(), ctx=gpu(0))
         self.loss = cfg.loss
         self.trainer = None
+        self.load_params()
         self.load_trainer()
+
+    def load_params(self):
+        if os.path.exists(self.cfg.params_file):
+            self.net.load_parameters(self.cfg.params_file, ctx=self.cfg.context)
+        else:
+            print("Params file not found. Initializing...")
+            self.net.initialize(init=init.Xavier(), ctx=self.cfg.context)
 
     def load_trainer(self):
         opt = self.cfg.optimizer
@@ -46,4 +47,5 @@ class Network:
             self.trainer._init_optimizer(opt, opt_dict)
 
     def predict(self, cur: Board, goal: Board) -> int:
-        return self.net_predict(self.net, cur.state, goal.state)
+        state = nd.array([self.transform(cur)]).as_in_context(self.cfg.context)
+        return round(self.net(state)[0].asscalar())
