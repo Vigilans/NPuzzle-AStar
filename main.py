@@ -1,7 +1,7 @@
-from mlp import *
+# from mlp import *
+from cnn import *
 from train import *
 
 if __name__ == "__main__":
-    mlp = network()
-    trainer = Trainer(mlp)
+    trainer = Trainer(network)
     trainer.start()
