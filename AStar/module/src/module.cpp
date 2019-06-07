@@ -9,6 +9,8 @@
 #include "AStar.hpp"
 #include "NPuzzle.hpp"
 
+#include "Network.h"
+
 namespace py = pybind11;
 using namespace std;
 using namespace py::literals; // Import the `_a` literal
@@ -60,6 +62,9 @@ PYBIND11_MODULE(Module, mod) {
                     return AStar{ NPuzzle<N>{ &ManhattanDistance<N> } };
                 } else if (choice == "hamming") {
                     return AStar{ NPuzzle<N>{ &HammingDistance<N> } };
+                //} else if (choice == "mlp" || choice == "cnn") {
+                //    auto net = Network::Create(choice);
+                //    return AStar{ NPuzzle<N>{ [net](const Board<N>& a, const Board<N>& b) { return net->predict(a, b); } } };
                 } else {
                     throw invalid_argument("bad choice");
                 }

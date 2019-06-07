@@ -16,7 +16,7 @@ constexpr int Factorial(int n) {
     return n * Factorial(n - 1);
 }
 
-std::mt19937 Rnd = std::mt19937(time(nullptr));
+static std::mt19937 Rnd = std::mt19937(time(nullptr));
 
 template <std::size_t N>
 struct Board {
@@ -113,7 +113,7 @@ constexpr int HammingDistance(const Board<N>& a, const Board<N>& b) {
 template <std::size_t N>
 struct NPuzzle {
     using State = Board<N>;
-    using Value = int;
+    using Value = std::size_t;
 
     std::function<Value(const State& a, const State& b)> h;
 

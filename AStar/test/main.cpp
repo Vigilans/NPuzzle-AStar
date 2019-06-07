@@ -1,9 +1,12 @@
+#include <iostream>
+#include <filesystem>
+#include <cassert>
 #include "../module/src/AStar.hpp"
 #include "../module/src/NPuzzle.hpp"
-#include <iostream>
-#include <cassert>
+#include "../network/include/Network.h"
 
 using namespace std;
+using namespace std::filesystem;
 
 constexpr size_t N = 5;
 using Problem = NPuzzle<N>;
@@ -55,9 +58,26 @@ void GenerateTest() {
     cout << "Dataset generated with size " << dataset.size() << endl;
 }
 
+void NetworkTest() {
+    auto mlp = Network::Create("mlp");
+    auto problem = Problem{ [mlp](auto& a, auto& b) { return mlp->predict(a, b); } };
+    auto astar = AStarSearch{ std::move(problem) };
+    for (int i = 0; i < 10; ++i) {
+        auto boards = State::Scrambled(10, true);
+        cout << "Predicted length: " << mlp->predict(boards.back(), State::Ordered()) << ", ";
+        auto path = astar.findPath(boards.back(), State::Ordered());
+        cout << "Path length " << path.size() - 1 << ", ";
+        cout << "States " << astar.statesExplorered() << ", ";
+        cout << "Time " << astar.timeElapsed().count() << "ms" << "\n";
+        astar.clear();
+        //cout << mlp->predict(State::Ordered(), State::Ordered()) << endl;
+    }
+}
+
 int main() {
     //ScrambleTest();
     //SolutionTest();
-    GenerateTest();
+    //GenerateTest();
+    NetworkTest();
     return 0;
 }
