@@ -1,4 +1,4 @@
-# NPuzzle.rl
+# NPuzzle-AStar
 
 ## Experiments
 
